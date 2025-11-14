@@ -1,43 +1,45 @@
-import http from "http";
+import express from "express";
+import formidable from "formidable";
 import { parseFile } from "music-metadata";
-import { IncomingForm } from "formidable";
 import fs from "fs";
 
-const server = http.createServer((req, res) => {
-  if (req.method === "POST" && req.url === "/metadata") {
-    const form = new IncomingForm({ multiples: false });
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    form.parse(req, async (err, fields, files) => {
-      if (err) {
-        res.writeHead(500);
-        return res.end(JSON.stringify({ error: "Upload error" }));
-      }
-
-      const file = files.file;
-
-      if (!file) {
-        res.writeHead(400);
-        return res.end(JSON.stringify({ error: "File missing" }));
-      }
-
-      try {
-        const metadata = await parseFile(file.filepath);
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(metadata));
-      } catch (e) {
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: "Metadata parsing failed" }));
-      }
-    });
-  } else {
-    res.writeHead(404);
-    res.end("Not found");
-  }
+// Endpoint di test
+app.get("/", (req, res) => {
+  res.send("Metadata API is running");
 });
 
-// Porta per Replit
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+// Endpoint per estrarre metadati
+app.post("/metadata", (req, res) => {
+  const form = formidable({ multiples: false });
+
+  form.parse(req, async (err, fields, files) => {
+    if (err) {
+      console.error("Form parse error:", err);
+      return res.status(500).json({ error: "Upload error" });
+    }
+
+    const uploadedFile = files.file;
+
+    if (!uploadedFile) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    try {
+      const metadata = await parseFile(uploadedFile.filepath);
+      res.json({ metadata });
+    } catch (error) {
+      console.error("Metadata error:", error);
+      res.status(500).json({ error: "Could not extract metadata" });
+    } finally {
+      // Cancella file temporaneo
+      fs.unlink(uploadedFile.filepath, () => {});
+    }
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
