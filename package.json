@@ -1,0 +1,10 @@
+{
+  "name": "mp-metadata-endpoint",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "music-metadata": "^10.0.0",
+    "formidable": "^3.5.0"
+  }
+}
