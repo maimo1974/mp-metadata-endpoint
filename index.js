@@ -2,30 +2,16 @@ import express from "express";
 import formidable from "formidable";
 import { parseFile } from "music-metadata";
 import fs from "fs";
-import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- CORS ---
-app.use(cors());
-
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
-// --- TEST ROUTE ---
+// Endpoint di test
 app.get("/", (req, res) => {
   res.send("Metadata API is running");
 });
 
-// --- METADATA ROUTE ---
+// Endpoint per estrarre metadati
 app.post("/metadata", (req, res) => {
   const form = formidable({ multiples: false });
 
@@ -41,17 +27,47 @@ app.post("/metadata", (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
+    // compatibile con formidable v3 (file è un array)
+    const filePath = Array.isArray(uploadedFile)
+      ? uploadedFile[0].filepath
+      : uploadedFile.filepath;
+
     try {
-      const metadata = await parseFile(uploadedFile.filepath);
-      return res.json({ metadata });
-    } catch (error) {
-      console.error("Error extracting metadata:", error);
-      return res.status(500).json({ error: "Could not extract metadata" });
+      const metadata = await parseFile(filePath);
+
+      // cancello il file temporaneo
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.warn("Errore nella cancellazione del file temporaneo:", unlinkErr);
+        }
+      });
+
+      // restituisco solo le cose che ti servono davvero
+      res.json({
+        title: metadata.common.title || null,
+        artist: metadata.common.artist || null,
+        album: metadata.common.album || null,
+        genre: metadata.common.genre || null,
+        year: metadata.common.year || null,
+        track: metadata.common.track || null,
+        copyright: metadata.common.copyright || null,
+        format: metadata.format
+          ? {
+              container: metadata.format.container,
+              codec: metadata.format.codec,
+              duration: metadata.format.duration,
+              sampleRate: metadata.format.sampleRate,
+              numberOfChannels: metadata.format.numberOfChannels,
+            }
+          : null,
+      });
+    } catch (e) {
+      console.error("Metadata parse error:", e);
+      res.status(500).json({ error: "Could not extract metadata" });
     }
   });
 });
 
-// --- START SERVER ---
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
