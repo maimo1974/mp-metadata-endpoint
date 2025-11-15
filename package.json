@@ -7,8 +7,8 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "music-metadata": "^10.0.0",
-    "formidable": "^3.5.0"
+    "formidable": "^3.5.0",
+    "cors": "^2.8.5"
   }
 }
